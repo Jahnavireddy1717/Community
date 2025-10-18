@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRBI - Community Resilience Building Initiative</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); }
+        }
+        .pulse-glow { animation: pulse-glow 2s infinite; }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .hover-scale {
+            transition: transform 0.3s ease;
+        }
+        .hover-scale:hover {
+            transform: scale(1.05);
+        }
+        .notification-slide {
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .radar-sweep {
+            animation: radar 2s linear infinite;
+        }
+        @keyframes radar {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        #map { height: 400px; border-radius: 0.5rem; }
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header Navigation -->
+    <header class="bg-white shadow-lg sticky top-0 z-50">
+        <nav class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-shield-alt text-3xl text-blue-600"></i>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-800">CRBI</h1>
+                            <p class="text-xs text-gray-600">Community Resilience Initiative</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <button onclick="showSection('dashboard')" class="nav-btn text-gray-700 hover:text-blue-600 transition">
+                        <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                    </button>
+                    <button onclick="showSection('risks')" class="nav-btn text-gray-700 hover:text-blue-600 transition">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>Risk Assessment
+                    </button>
+                    <button onclick="showSection('resources')" class="nav-btn text-gray-700 hover:text-blue-600 transition">
+                        <i class="fas fa-boxes mr-2"></i>Resources
+                    </button>
+                    <button onclick="showSection('community')" class="nav-btn text-gray-700 hover:text-blue-600 transition">
+                        <i class="fas fa-users mr-2"></i>Community
+                    </button>
+                    <button onclick="showSection('ai')" class="nav-btn text-gray-700 hover:text-blue-600 transition">
+                        <i class="fas fa-brain mr-2"></i>AI Insights
+                    </button>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="relative p-2 text-gray-600 hover:text-blue-600">
+                        <i class="fas fa-bell text-xl"></i>
+                        <span class="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full pulse-glow"></span>
+                    </button>
+                    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-phone-alt mr-2"></i>Emergency
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Alert Banner -->
+    <div id="alertBanner" class="bg-gradient-to-r from-orange-500 to-red-600 text-white py-2 px-4 hidden">
+        <div class="container mx-auto flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <span id="alertText">Severe weather warning in effect</span>
+            </div>
+            <button onclick="closeAlert()" class="text-white hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="content-section">
+            <!-- Stats Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-xl shadow-lg p-6 hover-scale">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Resilience Score</p>
+                            <p class="text-3xl font-bold text-green-600">87%</p>
+                            <p class="text-xs text-green-500 mt-1">
+                                <i class="fas fa-arrow-up"></i> +5% this month
+                            </p>
+                        </div>
+                        <div class="bg-green-100 p-3 rounded-full">
+                            <i class="fas fa-chart-line text-green-600 text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6 hover-scale">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Active Volunteers</p>
+                            <p class="text-3xl font-bold text-blue-600">1,247</p>
+                            <p class="text-xs text-blue-500 mt-1">Ready to deploy</p>
+                        </div>
+                        <div class="bg-blue-100 p-3 rounded-full">
+                            <i class="fas fa-hands-helping text-blue-600 text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6 hover-scale">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">IoT Sensors</p>
+                            <p class="text-3xl font-bold text-purple-600">542</p>
+                            <p class="text-xs text-purple-500 mt-1">98% operational</p>
+                        </div>
+                        <div class="bg-purple-100 p-3 rounded-full">
+                            <i class="fas fa-satellite-dish text-purple-600 text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6 hover-scale">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Response Time</p>
+                            <p class="text-3xl font-bold text-orange-600">4.2m</p>
+                            <p class="text-xs text-orange-500 mt-1">Average dispatch</p>
+                        </div>
+                        <div class="bg-orange-100 p-3 rounded-full">
+                            <i class="fas fa-clock text-orange-600 text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-time Monitoring Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Live Map -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">
+                            <i class="fas fa-map-marked-alt mr-2 text-blue-600"></i>
+                            Real-time Monitoring
+                        </h2>
+                        <div class="flex space-x-2">
+                            <button onclick="toggleMapLayer('flood')" class="px-3 py-1 bg-blue-100 text-blue-600 rounded-lg text-sm hover:bg-blue-200">
+                                Flood Risk
+                            </button>
+                            <button onclick="toggleMapLayer('fire')" class="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-sm hover:bg-red-200">
+                                Fire Risk
+                            </button>
+                            <button onclick="toggleMapLayer('shelter')" class="px-3 py-1 bg-green-100 text-green-600 rounded-lg text-sm hover:bg-green-200">
+                                Shelters
+                            </button>
+                        </div>
+                    </div>
+                    <div id="map"></div>
+                    <div class="mt-4 flex items-center justify-between text-sm">
+                        <div class="flex items-center space-x-4">
+                            <span class="flex items-center">
+                                <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                                Safe Zones
+                            </span>
+                            <span class="flex items-center">
+                                <span class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
+                                Caution Areas
+                            </span>
+                            <span class="flex items-center">
+                                <span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                                High Risk
+                            </span>
+                        </div>
+                        <span class="text-gray-500">
+                            <i class="fas fa-sync-alt mr-1"></i>
+                            Live updates every 30s
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Alert Panel -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-bell mr-2 text-orange-600"></i>
+                        Active Alerts
+                    </h2>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        <div class="bg-red-50 border-l-4 border-red-500 p-3 rounded notification-slide">
+                            <div class="flex items-start">
+                                <i class="fas fa-exclamation-triangle text-red-500 mt-1 mr-3"></i>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-red-800">High Wind Warning</p>
+                                    <p class="text-sm text-red-600">Zone A & B - 2 hours ago</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded notification-slide">
+                            <div class="flex items-start">
+                                <i class="fas fa-water text-yellow-500 mt-1 mr-3"></i>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-yellow-800">Rising Water Levels</p>
+                                    <p class="text-sm text-yellow-600">River Station 3 - 4 hours ago</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-3 rounded notification-slide">
+                            <div class="flex items-start">
+                                <i class="fas fa-users text-blue-500 mt-1 mr-3"></i>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-blue-800">Volunteer Meeting</p>
+                                    <p class="text-sm text-blue-600">Community Center - Tomorrow 9AM</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-chart-bar mr-2 text-purple-600"></i>
+                        Incident Trends
+                    </h2>
+                    <canvas id="incidentChart"></canvas>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-chart-pie mr-2 text-green-600"></i>
+                        Resource Allocation
+                    </h2>
+                    <canvas id="resourceChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Risk Assessment Section -->
+        <section id="risks" class="content-section hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-shield-virus mr-2 text-red-600"></i>
+                    AI-Powered Risk Assessment
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="border rounded-lg p-4 hover:shadow-lg transition">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-semibold text-gray-700">Natural Disasters</h3>
+                            <span class="bg-red-100 text-red-600 px-2 py-1 rounded text-sm">High Risk</span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span>Flood Probability</span>
+                                <span class="font-semibold">72%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-red-500 h-2 rounded-full" style="width: 72%"></div>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span>Earthquake Risk</span>
+                                <span class="font-semibold">35%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 35%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border rounded-lg p-4 hover:shadow-lg transition">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-semibold text-gray-700">Infrastructure</h3>
+                            <span class="bg-yellow-100 text-yellow-600 px-2 py-1 rounded text-sm">Medium Risk</span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span>Power Grid</span>
+                                <span class="font-semibold">45%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 45%"></div>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span>Water Systems</span>
+                                <span class="font-semibold">28%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 28%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border rounded-lg p-4 hover:shadow-lg transition">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-semibold text-gray-700">Health Systems</h3>
+                            <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-sm">Low Risk</span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span>Hospital Capacity</span>
+                                <span class="font-semibold">85%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span>Emergency Services</span>
+                                <span class="font-semibold">92%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 92%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-robot text-blue-600 text-2xl mr-3"></i>
+                        <div>
+                            <p class="font-semibold text-blue-800">AI Recommendation</p>
+                            <p class="text-sm text-blue-600">Based on current data patterns, prioritize flood mitigation measures in Zone A. Deploy additional monitoring sensors within 48 hours.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulation Tool -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-flask mr-2 text-purple-600"></i>
+                    Disaster Simulation Tool
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Scenario</label>
+                        <select class="w-full p-2 border rounded-lg" onchange="runSimulation(this.value)">
+                            <option>Category 5 Hurricane</option>
+                            <option>7.5 Magnitude Earthquake</option>
+                            <option>Major Flood Event</option>
+                            <option>Wildfire Outbreak</option>
+                        </select>
+                        <button onclick="runSimulation()" class="mt-4 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">
+                            <i class="fas fa-play mr-2"></i>Run Simulation
+                        </button>
+                    </div>
+                    <div id="simulationResults" class="p-4 bg-gray-50 rounded-lg">
+                        <p class="text-gray-600">Select a scenario and run simulation to see projected impact...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Resources Section -->
+        <section id="resources" class="content-section hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-warehouse mr-2 text-blue-600"></i>
+                    Resource Management
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4">
+                        <i class="fas fa-first-aid text-3xl mb-2"></i>
+                        <p class="font-semibold">Medical Supplies</p>
+                        <p class="text-2xl font-bold">12,450</p>
+                        <p class="text-sm opacity-90">Units Available</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4">
+                        <i class="fas fa-utensils text-3xl mb-2"></i>
+                        <p class="font-semibold">Food & Water</p>
+                        <p class="text-2xl font-bold">50,000</p>
+                        <p class="text-sm opacity-90">Meals Ready</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-4">
+                        <i class="fas fa-bed text-3xl mb-2"></i>
+                        <p class="font-semibold">Shelter Capacity</p>
+                        <p class="text-2xl font-bold">3,200</p>
+                        <p class="text-sm opacity-90">Beds Available</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4">
+                        <i class="fas fa-tools text-3xl mb-2"></i>
+                        <p class="font-semibold">Equipment</p>
+                        <p class="text-2xl font-bold">856</p>
+                        <p class="text-sm opacity-90">Units Ready</p>
+                    </div>
+                </div>
+
+                <!-- Resource Distribution Map -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-3">Resource Distribution Centers</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                        <i class="fas fa-map-marker-alt text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold">North District Center</p>
+                                        <p class="text-sm text-gray-600">Capacity: 85%</p>
+                                    </div>
+                                </div>
+                                <button class="text-blue-600 hover:text-blue-800">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                                        <i class="fas fa-map-marker-alt text-green-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold">South District Center</p>
+                                        <p class="text-sm text-gray-600">Capacity: 62%</p>
+                                    </div>
+                                </div>
+                                <button class="text-blue-600 hover:text-blue-800">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+                                        <i class="fas fa-map-marker-alt text-orange-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold">East District Center</p>
+                                        <p class="text-sm text-gray-600">Capacity: 91%</p>
+                                    </div>
+                                </div>
+                                <button class="text-blue-600 hover:text-blue-800">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-3">Supply Chain Status</h3>
+                        <canvas id="supplyChainChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Community Section -->
+        <section id="community" class="content-section hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-users mr-2 text-green-600"></i>
+                    Community Engagement
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="text-center p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-lg">
+                        <i class="fas fa-user-friends text-4xl text-green-600 mb-3"></i>
+                        <p class="text-3xl font-bold text-gray-800">15,432</p>
+                        <p class="text-gray-600">Registered Members</p>
+                    </div>
+                    <div class="text-center p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg">
+                        <i class="fas fa-graduation-cap text-4xl text-blue-600 mb-3"></i>
+                        <p class="text-3xl font-bold text-gray-800">3,847</p>
+                        <p class="text-gray-600">Trained Responders</p>
+                    </div>
+                    <div class="text-center p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg">
+                        <i class="fas fa-hands-helping text-4xl text-purple-600 mb-3"></i>
+                        <p class="text-3xl font-bold text-gray-800">892</p>
+                        <p class="text-gray-600">Active Volunteers</p>
+                    </div>
+                </div>
+
+                <!-- Training Programs -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-chalkboard-teacher mr-2 text-blue-600"></i>
+                        Training Programs
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="border rounded-lg p-4 hover:shadow-lg transition">
+                            <div class="flex items-center mb-3">
+                                <i class="fas fa-heartbeat text-red-500 text-2xl mr-3"></i>
+                                <div>
+                                    <p class="font-semibold">First Aid & CPR</p>
+                                    <p class="text-sm text-gray-600">Next: Dec 15, 2024</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-500">24/30 enrolled</span>
+                                <button class="text-blue-600 text-sm hover:underline">Enroll Now</button>
+                            </div>
+                        </div>
+                        <div class="border rounded-lg p-4 hover:shadow-lg transition">
+                            <div class="flex items-center mb-3">
+                                <i class="fas fa-fire-extinguisher text-orange-500 text-2xl mr-3"></i>
+                                <div>
+                                    <p class="font-semibold">Fire Safety</p>
+                                    <p class="text-sm text-gray-600">Next: Dec 18, 2024</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-500">18/25 enrolled</span>
+                                <button class="text-blue-600 text-sm hover:underline">Enroll Now</button>
+                            </div>
+                        </div>
+                        <div class="border rounded-lg p-4 hover:shadow-lg transition">
+                            <div class="flex items-center mb-3">
+                                <i class="fas fa-broadcast-tower text-blue-500 text-2xl mr-3"></i>
+                                <div>
+                                    <p class="font-semibold">Emergency Comms</p>
+                                    <p class="text-sm text-gray-600">Next: Dec 20, 2024</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-500">31/35 enrolled</span>
+                                <button class="text-blue-600 text-sm hover:underline">Enroll Now</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Community Forum -->
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-comments mr-2 text-purple-600"></i>
+                        Community Forum
+                    </h3>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="space-y-3">
+                            <div class="bg-white p-3 rounded-lg">
+                                <div class="flex items-start">
+                                    <img src="https://picsum.photos/seed/user1/40/40" alt="User" class="w-10 h-10 rounded-full mr-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <p class="font-semibold">Sarah Johnson</p>
+                                            <span class="text-xs text-gray-500">2 hours ago</span>
+                                        </div>
+                                        <p class="text-sm text-gray-700 mt-1">Great training session today! Learned so much about emergency response protocols.</p>
+                                        <div class="flex items-center mt-2 space-x-4">
+                                            <button class="text-sm text-gray-600 hover:text-blue-600">
+                                                <i class="fas fa-thumbs-up mr-1"></i>12
+                                            </button>
+                                            <button class="text-sm text-gray-600 hover:text-blue-600">
+                                                <i class="fas fa-reply mr-1"></i>Reply
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI Insights Section -->
+        <section id="ai" class="content-section hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-brain mr-2 text-purple-600"></i>
+                    AI-Powered Insights & Predictions
+                </h2>
+
+                <!-- Predictive Analytics -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-800 mb-4">
+                            <i class="fas fa-chart-line mr-2 text-purple-600"></i>
+                            30-Day Risk Forecast
+                        </h3>
+                        <canvas id="predictionChart"></canvas>
+                        <div class="mt-4 p-3 bg-white rounded-lg">
+                            <p class="text-sm text-gray-700">
+                                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                AI predicts 78% probability of moderate flooding in Zone B between Dec 20-25
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-blue-50 to-green-50 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-800 mb-4">
+                            <i class="fas fa-robot mr-2 text-blue-600"></i>
+                            Intelligent Recommendations
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex items-start p-3 bg-white rounded-lg">
+                                <i class="fas fa-lightbulb text-yellow-500 mt-1 mr-3"></i>
+                                <div>
+                                    <p class="font-semibold text-gray-800">Preventive Action</p>
+                                    <p class="text-sm text-gray-600">Deploy additional water pumps to low-lying areas before predicted rainfall</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start p-3 bg-white rounded-lg">
+                                <i class="fas fa-users text-green-500 mt-1 mr-3"></i>
+                                <div>
+                                    <p class="font-semibold text-gray-800">Resource Optimization</p>
+                                    <p class="text-sm text-gray-600">Reallocate 30% of medical supplies from North to South district based on population density</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start p-3 bg-white rounded-lg">
+                                <i class="fas fa-route text-blue-500 mt-1 mr-3"></i>
+                                <div>
+                                    <p class="font-semibold text-gray-800">Evacuation Planning</p>
+                                    <p class="text-sm text-gray-600">Update evacuation routes to avoid construction zones identified via satellite imagery</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Machine Learning Models -->
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <h3 class="font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-network-wired mr-2 text-green-600"></i>
+                        Active ML Models
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-semibold text-gray-700">Weather Prediction</span>
+                                <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-xs">Active</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Accuracy: 94.2%</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 94.2%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-semibold text-gray-700">Damage Assessment</span>
+                                <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-xs">Active</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Accuracy: 89.7%</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 89.7%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-semibold text-gray-700">Resource Optimization</span>
+                                <span class="bg-yellow-100 text-yellow-600 px-2 py-1 rounded text-xs">Training</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Accuracy: 76.3%</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 76.3%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Floating Action Button -->
+    <div class="fixed bottom-6 right-6 z-40">
+        <button onclick="openEmergencyChat()" class="bg-red-600 text-white p-4 rounded-full shadow-lg hover:bg-red-700 transition pulse-glow">
+            <i class="fas fa-comment-dots text-xl"></i>
+        </button>
+    </div>
+
+    <!-- Emergency Chat Modal -->
+    <div id="emergencyChat" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center h-full p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                <div class="bg-red-600 text-white p-4 rounded-t-xl">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold">Emergency Response Chat</h3>
+                        <button onclick="closeEmergencyChat()" class="text-white hover:text-gray-200">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4 h-96 overflow-y-auto">
+                    <div class="space-y-3">
+                        <div class="flex items-start">
+                            <div class="bg-blue-100 p-2 rounded-full mr-3">
+                                <i class="fas fa-robot text-blue-600"></i>
+                            </div>
+                            <div class="bg-gray-100 rounded-lg p-3 max-w-xs">
+                                <p class="text-sm">Hello! I'm your emergency assistant. How can I help you today?</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 border-t">
+                    <div class="flex items-center">
+                        <input type="text" placeholder="Type your message..." class="flex-1 p-2 border rounded-l-lg focus:outline-none focus:border-blue-500">
+                        <button class="bg-blue-600 text-white px-4 py-2 rounded-r-lg hover:bg-blue-700">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Map
+        let map;
+        let markers = [];
+        
+        function initMap() {
+            map = L.map('map').setView([40.7128, -74.0060], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add sample markers
+            const locations = [
+                {lat: 40.7128, lng: -74.0060, type: 'safe', name: 'Safe Zone A'},
+                {lat: 40.7260, lng: -73.9897, type: 'warning', name: 'Caution Area B'},
+                {lat: 40.7489, lng: -73.9680, type: 'danger', name: 'High Risk Zone C'},
+                {lat: 40.6892, lng: -74.0445, type: 'shelter', name: 'Emergency Shelter 1'},
+                {lat: 40.7282, lng: -73.9942, type: 'shelter', name: 'Emergency Shelter 2'}
+            ];
+            
+            locations.forEach(loc => {
+                const color = loc.type === 'safe' ? 'green' : loc.type === 'warning' ? 'orange' : loc.type === 'danger' ? 'red' : 'blue';
+                const marker = L.circleMarker([loc.lat, loc.lng], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+                marker.bindPopup(loc.name);
+                markers.push(marker);
+            });
+        }
+
+        // Initialize Charts
+        function initCharts() {
+            // Incident Trends Chart
+            const incidentCtx = document.getElementById('incidentChart').getContext('2d');
+            new Chart(incidentCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Flood Incidents',
+                        data: [12, 19, 8, 15, 22, 18],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Fire Incidents',
+                        data: [8, 12, 6, 9, 14, 11],
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Resource Allocation Chart
+            const resourceCtx = document.getElementById('resourceChart').getContext('2d');
+            new Chart(resourceCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Medical', 'Food', 'Shelter', 'Equipment', 'Transport'],
+                    datasets: [{
+                        data: [30, 25, 20, 15, 10],
+                        backgroundColor: [
+                            'rgb(59, 130, 246)',
+                            'rgb(34, 197, 94)',
+                            'rgb(251, 146, 60)',
+                            'rgb(168, 85, 247)',
+                            'rgb(236, 72, 153)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Supply Chain Chart
+            const supplyCtx = document.getElementById('supplyChainChart');
+            if (supplyCtx) {
+                new Chart(supplyCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['Medical', 'Food', 'Water', 'Equipment', 'Fuel'],
+                        datasets: [{
+                            label: 'Current Stock',
+                            data: [85, 92, 78, 65, 88],
+                            backgroundColor: 'rgba(34, 197, 94, 0.8)'
+                        }, {
+                            label: 'Required Level',
+                            data: [100, 100, 100, 100, 100],
+                            backgroundColor: 'rgba(229, 231, 235, 0.8)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Prediction Chart
+            const predictionCtx = document.getElementById('predictionChart');
+            if (predictionCtx) {
+                new Chart(predictionCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: ['Day 1', 'Day 5', 'Day 10', 'Day 15', 'Day 20', 'Day 25', 'Day 30'],
+                        datasets: [{
+                            label: 'Flood Risk Probability',
+                            data: [20, 35, 45, 60, 78, 65, 40],
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Navigation
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+            
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600', 'font-semibold');
+                btn.classList.add('text-gray-700');
+            });
+            event.target.closest('.nav-btn').classList.remove('text-gray-700');
+            event.target.closest('.nav-btn').classList.add('text-blue-600', 'font-semibold');
+        }
+
+        // Emergency Chat
+        function openEmergencyChat() {
+            document.getElementById('emergencyChat').classList.remove('hidden');
+        }
+
+        function closeEmergencyChat() {
+            document.getElementById('emergencyChat').classList.add('hidden');
+        }
+
+        // Alert Banner
+        function showAlert() {
+            const banner = document.getElementById('alertBanner');
+            banner.classList.remove('hidden');
+            setTimeout(() => {
+                banner.classList.add('hidden');
+            }, 10000);
+        }
+
+        function closeAlert() {
+            document.getElementById('alertBanner').classList.add('hidden');
+        }
+
+        // Simulation
+        function runSimulation(scenario) {
+            const results = document.getElementById('simulationResults');
+            results.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex items-center">
+                        <div class="loading-spinner mr-3"></div>
+                        <span class="text-gray-600">Running simulation...</span>
+                    </div>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                results.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="p-3 bg-red-50 rounded-lg">
+                            <p class="font-semibold text-red-800">Projected Impact: High</p>
+                            <p class="text-sm text-red-600">Estimated affected population: 45,000</p>
+                        </div>
+                        <div class="p-3 bg-yellow-50 rounded-lg">
+                            <p class="font-semibold text-yellow-800">Infrastructure Damage</p>
+                            <p class="text-sm text-yellow-600">23 roads, 5 bridges, 2 hospitals at risk</p>
+                        </div>
+                        <div class="p-3 bg-blue-50 rounded-lg">
+                            <p class="font-semibold text-blue-800">Recommended Actions</p>
+                            <ul class="text-sm text-blue-600 list-disc list-inside">
+                                <li>Activate emergency protocols</li>
+                                <li>Deploy evacuation teams</li>
+                                <li>Open emergency shelters</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }, 2000);
+        }
+
+        // Map Layers
+        function toggleMapLayer(layer) {
+            // Placeholder for map layer toggle functionality
+            console.log('Toggling layer:', layer);
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            initCharts();
+            
+            // Show alert after 3 seconds
+            setTimeout(showAlert, 3000);
+            
+            // Simulate real-time updates
+            setInterval(() => {
+                // Update random stat
+                const stats = document.querySelectorAll('.text-3xl');
+                const randomStat = stats[Math.floor(Math.random() * stats.length)];
+                const currentValue = parseInt(randomStat.textContent);
+                const change = Math.floor(Math.random() * 10) - 5;
+                randomStat.textContent = currentValue + change;
+            }, 5000);
+        });
+
+        // Handle window resize for map
+        window.addEventListener('resize', function() {
+            if (map) {
+                map.invalidateSize();
+            }
+        });
+    </script
